@@ -1,6 +1,6 @@
 # Match protein sequences to the closest Genbank nucleotide sequences encoding the protein
 
-This repository provides a script that is designed for the use case when you have a protein sequence and want to find a nucleotide sequence in Genbank encoding that protein.
+This repository provides a Python script ([match_prot_to_genbank_nt.py](match_prot_to_genbank_nt.py)) that is designed for the use case when you have a protein sequence and want to find a nucleotide sequence in Genbank encoding that protein.
 If there is a Genbank sequence that aligns with high identity to the full-length protein with no indels, it will be found and mutations added if needed to make it match the protein.
 
 This script was written by [Jesse Bloom](https://jbloomlab.org/) for the use case of finding Genbank influenza nucleotide sequences that match influenza protein sequences of interest, but it should work more generally.
@@ -10,7 +10,7 @@ Then activate that conda environment with:
 
     conda activate match_prot_to_genbank_nt
 
-and run the script.
+and run the Python script [match_prot_to_genbank_nt.py](match_prot_to_genbank_nt.py).
 
 To run on the example protein input in [example_prots.fasta](example_prots.fasta), do:
 
