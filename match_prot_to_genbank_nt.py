@@ -51,7 +51,7 @@ AA_TO_BEST_HUMAN_CODON = {
 
 
 def get_target_fasta(taxon, targets_zip, targets_fasta):
-    """Get targets from NCBI datasets."""
+    """Get targets from NCBI datasets, filtering sequences with ambiguous nucleotides."""
     cmd = [
         'datasets', 'download', 'virus', 'genome', 'taxon', taxon,
         '--include', 'genome',
@@ -67,15 +67,34 @@ def get_target_fasta(taxon, targets_zip, targets_fasta):
     )
     subprocess.run(cmd, check=True, cwd=dirname)
 
-    print(f"Extracting genomic.fna from {targets_zip} as {targets_fasta=}")
+    # Extract raw FASTA first
+    raw_fasta = targets_fasta + ".raw"
+    print(f"Extracting genomic.fna from {targets_zip} as {raw_fasta}")
     with zipfile.ZipFile(targets_zip, 'r') as zip_ref:
         for member in zip_ref.namelist():
             if member.endswith('genomic.fna'):
-                with zip_ref.open(member) as f_in, open(targets_fasta, 'wb') as f_out:
+                with zip_ref.open(member) as f_in, open(raw_fasta, 'wb') as f_out:
                     f_out.write(f_in.read())
                 break
         else:
             raise ValueError("genomic.fna not found in archive.")
+
+    # Filter with seqkit to remove sequences with ambiguous nucleotides
+    print(f"Filtering sequences with ambiguous nucleotides using seqkit to create {targets_fasta=}")
+    seqkit_cmd = [
+        'seqkit', 'grep',
+        '-s', '-r', '-p', '^[ATGCatgc]+$',
+        raw_fasta
+    ]
+    with open(targets_fasta, 'w') as f_out:
+        result = subprocess.run(seqkit_cmd, stdout=f_out, stderr=subprocess.PIPE, text=True, check=True)
+
+    # Report filtering stats if available in stderr
+    if result.stderr:
+        print(result.stderr)
+
+    # Clean up raw file
+    os.remove(raw_fasta)
         
         
 def make_blastdb(targets_fasta, blastdb):
@@ -187,8 +206,10 @@ def parse_blast_xml(query_prots, blast_results, blastdb, query_id_name):
             cdna = list(str(cdna.seq))
             for mut in hit_d["aa_muts_accession_to_prot"]:
                 acc_aa, r, query_aa = mut[0], int(mut[1: -1]), mut[-1]
-                assert query_aa == query.seq[r - 1]
-                assert acc_aa == CODON_TO_AA["".join(cdna[3 * r - 3: 3 * r])]
+                assert query_aa == query.seq[r - 1], hit_d
+                codon = "".join(cdna[3 * r - 3: 3 * r])
+                assert codon in CODON_TO_AA, f"{codon=}, {hit_d=}"
+                assert acc_aa == CODON_TO_AA[codon], hit_d
                 cdna[3 * r - 3: 3 * r] = AA_TO_BEST_HUMAN_CODON[query_aa]
             cdna = "".join(cdna)
 
